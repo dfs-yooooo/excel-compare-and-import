@@ -1,0 +1,1 @@
+import{Ct as e,K as t,k as n,x as r}from"./vue.runtime.esm-bundler-BbpnUti5.js";import{l as i}from"./index-D9G66ziz.js";var a=n({__name:`user-icon`,setup(n){return(n,a)=>(t(),r(e(i)))}});export{a as default};

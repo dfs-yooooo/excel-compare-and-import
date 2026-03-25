@@ -1,0 +1,1 @@
+function e(e){return new Worker(``+new URL(`readXLSX.worker-Y4UN0oL8.js`,import.meta.url).href,{type:`module`,name:e?.name})}export{e as default};
