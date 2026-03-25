@@ -3,7 +3,7 @@ import { ref, computed, watch, toRaw, onMounted } from "vue"
 import { bitable } from "@lark-base-open/js-sdk"
 import type { ITableMeta } from "@lark-base-open/js-sdk"
 import { importModes, UpdateMode } from "@/types/types"
-import type { ExcelDataInfo, fieldMap, ImportOptions } from "@/types/types"
+import type { ExcelDataInfo, fieldMap, ImportOptions, VirtualIndexField, IndexFieldConfig } from "@/types/types"
 import { ElMessage, type TableColumnCtx, type UploadFile } from "element-plus"
 import {
   Setting,
@@ -12,6 +12,7 @@ import {
   Key,
   EditPen,
   DeleteFilled,
+  Link,
 } from "@element-plus/icons-vue"
 import { indexFieldType, Log, Error, Warn, downLoadFileFromA } from "@/utils"
 import fieldSetting from "@/components/field-setting/index.vue"
@@ -30,6 +31,7 @@ import ExportIcon from "@/components/icons/export-icon.vue"
 import ImportIcon from "@/components/icons/import-icon.vue"
 import { Tools } from "@element-plus/icons-vue"
 import type { ConcatConfig } from "@/types/types"
+import virtualIndexSetting from "@/components/virtual-index-setting/index.vue"
 
 const { t } = useI18n()
 const props = defineProps({
@@ -50,6 +52,14 @@ const importInfoRef = ref()
 const linkRef = ref()
 const concatRef = ref()
 const currentConcatField = ref<fieldMap>()
+const virtualIndexRef = ref()
+const virtualIndexFields = ref<VirtualIndexField[]>([])
+
+// 索引字段配置（用于合并模式）
+const indexFieldConfigs = ref<Map<string, IndexFieldConfig>>(new Map())
+const currentIndexConfig = ref<IndexFieldConfig | null>(null)
+const showIndexConfigDialog = ref(false)
+const currentEditingFieldId = ref<string>("")
 const tableList = ref<ITableMeta[]>([])
 const targetTableId = ref<string>("")
 const allowAdd = ref(true)
@@ -242,7 +252,7 @@ const validate = () => {
     (i) => settingColumns.value.find((j) => j.field.id === i) as fieldMap,
   )
   const hasAuto = validateIndexAuto(indexes)
-  const noEmpty = validateIndex(indexes)
+  const noEmpty = validateIndex(indexes, indexFieldConfigs.value)
   if (hasAuto) {
     changeAllowAction(AllowAction.onlyUpdate)
     allowAction.value = AllowAction.onlyUpdate
@@ -282,6 +292,13 @@ async function importAction() {
   importLoading.value = true
   importInfoRef.value.toggleVisible()
   const { importExcel } = await import("@/utils/import/import.ts")
+  
+  // 将 Map 转换为普通对象以便传递
+  const indexConfigsObj: Record<string, any> = {}
+  indexFieldConfigs.value.forEach((value, key) => {
+    indexConfigsObj[key] = value
+  })
+  
   await importExcel(
     toRaw(settingColumns.value),
     toRaw(props.excelData),
@@ -289,6 +306,8 @@ async function importAction() {
     index,
     mode.value,
     userOptions.value,
+    toRaw(virtualIndexFields.value),
+    indexConfigsObj,
   )
   importLoading.value = false
   props.onImported?.()
@@ -403,6 +422,193 @@ onMounted(() => {
       })
     })
 })
+
+// 索引字段变化时初始化配置
+function onIndexChange(selectedIds: string[]) {
+  validate()
+  // 为新增的索引字段初始化配置
+  selectedIds.forEach((id) => {
+    if (!indexFieldConfigs.value.has(id)) {
+      const field = indexFields.value.find((f) => f.id === id)
+      if (field) {
+        indexFieldConfigs.value.set(id, {
+          fieldId: id,
+          fieldName: field.name,
+          useConcat: false,
+          concatConfig: {
+            sourceFields: [],
+            separator: "",
+            order: [],
+          },
+        })
+      }
+    }
+  })
+  // 清理未选中的配置
+  indexFieldConfigs.value.forEach((_, id) => {
+    if (!selectedIds.includes(id)) {
+      indexFieldConfigs.value.delete(id)
+    }
+  })
+}
+
+// 切换索引字段选中状态
+function toggleIndexField(fieldId: string) {
+  const index = Index.value.indexOf(fieldId)
+  if (index > -1) {
+    Index.value.splice(index, 1)
+  } else {
+    Index.value.push(fieldId)
+  }
+  onIndexChange(Index.value)
+}
+
+// 获取字段类型
+function getFieldType(fieldId: string) {
+  return indexFields.value.find((f) => f.id === fieldId)?.type
+}
+
+// 获取字段名称
+function getFieldName(fieldId: string) {
+  return indexFields.value.find((f) => f.id === fieldId)?.name || fieldId
+}
+
+// 获取索引配置按钮文本
+function getIndexConfigButtonText(fieldId: string) {
+  const config = indexFieldConfigs.value.get(fieldId)
+  return config?.useConcat ? t('button.configured') : t('button.configure')
+}
+
+// 获取拼接源字段
+function getConcatSourceFields(fieldId: string) {
+  const config = indexFieldConfigs.value.get(fieldId)
+  if (!config?.useConcat) return []
+  
+  return config.concatConfig.sourceFields
+    .map((name, index) => ({ name, order: config.concatConfig.order[index] ?? index }))
+    .sort((a, b) => a.order - b.order)
+    .map((item) => item.name)
+}
+
+// 打开索引配置对话框
+function openIndexConfig(fieldId: string) {
+  const field = indexFields.value.find((f) => f.id === fieldId)
+  if (!field) return
+  
+  currentEditingFieldId.value = fieldId
+  
+  // 获取或初始化配置
+  let config = indexFieldConfigs.value.get(fieldId)
+  if (!config) {
+    config = {
+      fieldId,
+      fieldName: field.name,
+      useConcat: false,
+      concatConfig: {
+        sourceFields: [],
+        separator: "",
+        order: [],
+      },
+    }
+    indexFieldConfigs.value.set(fieldId, config)
+  }
+  
+  currentIndexConfig.value = JSON.parse(JSON.stringify(config))
+  showIndexConfigDialog.value = true
+}
+
+// 获取源字段顺序
+function getSourceFieldOrder(index: number) {
+  if (!currentIndexConfig.value) return 0
+  return currentIndexConfig.value.concatConfig.order[index] ?? index
+}
+
+// 获取排序后的源字段
+function getOrderedSourceFields() {
+  if (!currentIndexConfig.value) return []
+  
+  return currentIndexConfig.value.concatConfig.sourceFields
+    .map((name, index) => ({ 
+      name, 
+      order: currentIndexConfig.value!.concatConfig.order[index] ?? index 
+    }))
+    .sort((a, b) => a.order - b.order)
+    .map((item) => item.name)
+}
+
+// 添加源字段到索引
+function addSourceFieldToIndex(fieldName: string) {
+  if (!currentIndexConfig.value) return
+  
+  if (!currentIndexConfig.value.concatConfig.sourceFields.includes(fieldName)) {
+    currentIndexConfig.value.concatConfig.sourceFields.push(fieldName)
+    currentIndexConfig.value.concatConfig.order.push(
+      currentIndexConfig.value.concatConfig.order.length
+    )
+  }
+}
+
+// 移除源字段
+function removeSourceField(index: number) {
+  if (!currentIndexConfig.value) return
+  
+  const removedOrder = currentIndexConfig.value.concatConfig.order[index]
+  currentIndexConfig.value.concatConfig.sourceFields.splice(index, 1)
+  currentIndexConfig.value.concatConfig.order.splice(index, 1)
+  
+  // 重新调整顺序
+  currentIndexConfig.value.concatConfig.order = 
+    currentIndexConfig.value.concatConfig.order.map((o) => 
+      o > removedOrder ? o - 1 : o
+    )
+}
+
+// 移动源字段顺序
+function moveSourceField(index: number, direction: "up" | "down") {
+  if (!currentIndexConfig.value) return
+  
+  const currentOrder = currentIndexConfig.value.concatConfig.order[index]
+  if (direction === "up" && currentOrder > 0) {
+    const prevIndex = currentIndexConfig.value.concatConfig.order.findIndex(
+      (o) => o === currentOrder - 1
+    )
+    if (prevIndex !== -1) {
+      currentIndexConfig.value.concatConfig.order[index]--
+      currentIndexConfig.value.concatConfig.order[prevIndex]++
+    }
+  } else if (
+    direction === "down" && 
+    currentOrder < currentIndexConfig.value.concatConfig.sourceFields.length - 1
+  ) {
+    const nextIndex = currentIndexConfig.value.concatConfig.order.findIndex(
+      (o) => o === currentOrder + 1
+    )
+    if (nextIndex !== -1) {
+      currentIndexConfig.value.concatConfig.order[index]++
+      currentIndexConfig.value.concatConfig.order[nextIndex]--
+    }
+  }
+}
+
+// 保存索引配置
+function saveIndexConfig() {
+  if (!currentIndexConfig.value || !currentEditingFieldId.value) return
+  
+  // 验证
+  if (currentIndexConfig.value.useConcat && 
+      currentIndexConfig.value.concatConfig.sourceFields.length === 0) {
+    ElMessage.warning(t('message.virtualFieldSourceRequired'))
+    return
+  }
+  
+  indexFieldConfigs.value.set(
+    currentEditingFieldId.value, 
+    JSON.parse(JSON.stringify(currentIndexConfig.value))
+  )
+  
+  showIndexConfigDialog.value = false
+  ElMessage.success(t('message.configSaved'))
+}
 
 const exporting = ref(false)
 const exportConfig = () => {
@@ -703,6 +909,7 @@ defineExpose({
         :options="getModeList()"
       />
     </el-form-item>
+    <!-- 索引字段选择（合并模式） -->
     <el-form-item
       v-if="modeSelect[0] !== 'append'"
       :label="t('form.label.index')"
@@ -719,28 +926,165 @@ defineExpose({
           </el-icon>
         </el-tooltip>
       </template>
-      <el-select
-        v-model="Index"
-        :placeholder="t('input.placeholder.chooseIndex')"
-        @change="validate"
-        filterable
-        clearable
-        multiple
-      >
-        <el-option
-          v-for="item of indexFields"
-          :value="item.id"
-          :label="item.name"
-        >
-          <template #default>
-            <span style="margin-right: 5px; position: relative; right: 0px">
-              <field-icon :type="item.type" />
-            </span>
-            <span style="user-select: none">{{ item.name }}</span>
-          </template>
-        </el-option>
-      </el-select>
+      
+      <!-- 索引字段选择 - 卡片式展示 -->
+      <div class="index-fields-container">
+        <div class="index-field-cards">
+          <el-checkbox-group v-model="Index" @change="onIndexChange">
+            <div class="field-cards-wrapper">
+              <el-card
+                v-for="item of indexFields"
+                :key="item.id"
+                class="index-field-card"
+                :class="{ selected: Index.includes(item.id) }"
+                shadow="hover"
+                @click="toggleIndexField(item.id)"
+              >
+                <div class="card-content">
+                  <el-checkbox :label="item.id" @click.stop>
+                    <span class="field-icon-wrapper">
+                      <field-icon :type="item.type" />
+                    </span>
+                    <span class="field-name">{{ item.name }}</span>
+                  </el-checkbox>
+                  <el-tag v-if="item.isPrimary" size="small" type="success" class="primary-tag">
+                    {{ t('label.primary') }}
+                  </el-tag>
+                </div>
+                
+                <!-- 配置按钮（仅在选中时显示） -->
+                <div v-if="Index.includes(item.id)" class="card-actions" @click.stop>
+                  <el-button
+                    link
+                    type="primary"
+                    size="small"
+                    @click="openIndexConfig(item.id)"
+                  >
+                    <el-icon><Setting /></el-icon>
+                    {{ getIndexConfigButtonText(item.id) }}
+                  </el-button>
+                </div>
+                
+                <!-- 配置预览 -->
+                <div v-if="Index.includes(item.id) && indexFieldConfigs.get(item.id)?.useConcat" class="config-preview">
+                  <el-text type="info" size="small">
+                    <el-icon><Link /></el-icon>
+                    {{ getConcatSourceFields(item.id).join(indexFieldConfigs.get(item.id)?.concatConfig?.separator || '') }}
+                  </el-text>
+                </div>
+              </el-card>
+            </div>
+          </el-checkbox-group>
+        </div>
+        
+        <el-text v-if="Index.length === 0" type="warning" size="small">
+          {{ t('message.pleaseSelectIndex') }}
+        </el-text>
+        
+      </div>
     </el-form-item>
+
+    <!-- 索引字段配置对话框 -->
+    <el-dialog
+      v-model="showIndexConfigDialog"
+      :title="t('h.indexFieldConfig')"
+      width="600px"
+    >
+      <el-form label-position="top" v-if="currentIndexConfig">
+        <el-form-item :label="t('form.label.indexField')">
+          <el-input :model-value="currentIndexConfig.fieldName" disabled />
+        </el-form-item>
+        
+        <el-form-item :label="t('form.label.useConcatForIndex')">
+          <el-switch v-model="currentIndexConfig.useConcat" />
+        </el-form-item>
+        
+        <template v-if="currentIndexConfig.useConcat">
+          <el-form-item :label="t('form.label.concatSeparator')">
+            <el-input
+              v-model="currentIndexConfig.concatConfig.separator"
+              :placeholder="t('input.placeholder.concatSeparator')"
+              clearable
+            />
+          </el-form-item>
+          
+          <el-form-item :label="t('form.label.selectSourceFields')" required>
+            <el-select-v2
+              :options="excelFields.map((f) => ({ label: f.name, value: f.name }))"
+              :placeholder="t('input.placeholder.selectSourceFields')"
+              filterable
+              clearable
+              @change="(val) => val && addSourceFieldToIndex(val as string)"
+              style="width: 100%; margin-bottom: 10px"
+            />
+          </el-form-item>
+          
+          <el-form-item
+            v-if="currentIndexConfig.concatConfig.sourceFields.length > 0"
+            :label="t('form.label.selectedSourceFields')"
+          >
+            <el-table :data="currentIndexConfig.concatConfig.sourceFields" size="small">
+              <el-table-column :label="t('table.fieldName')">
+                <template #default="{ row, $index }">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <el-tag type="primary" size="small">
+                      {{ getSourceFieldOrder($index) + 1 }}
+                    </el-tag>
+                    <span>{{ row }}</span>
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column :label="t('table.operation')" width="150" align="right">
+                <template #default="{ $index }">
+                  <el-button
+                    :disabled="currentIndexConfig.concatConfig.order[$index] === 0"
+                    link
+                    type="primary"
+                    @click="moveSourceField($index, 'up')"
+                  >
+                    <el-icon><ArrowUp /></el-icon>
+                  </el-button>
+                  <el-button
+                    :disabled="currentIndexConfig.concatConfig.order[$index] === currentIndexConfig.concatConfig.sourceFields.length - 1"
+                    link
+                    type="primary"
+                    @click="moveSourceField($index, 'down')"
+                  >
+                    <el-icon><ArrowDown /></el-icon>
+                  </el-button>
+                  <el-button link type="danger" @click="removeSourceField($index)">
+                    <el-icon><Delete /></el-icon>
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-form-item>
+          
+          <el-form-item :label="t('form.label.concatPreview')">
+            <el-card shadow="never">
+              <div style="font-family: monospace">
+                <el-tag
+                  v-for="field in getOrderedSourceFields()"
+                  :key="field"
+                  size="small"
+                  style="margin: 2px"
+                >
+                  {{ field }}
+                </el-tag>
+                <div v-if="currentIndexConfig.concatConfig.separator" style="margin-top: 8px; color: #909399">
+                  {{ t('form.label.separator') }}: "{{ currentIndexConfig.concatConfig.separator }}"
+                </div>
+              </div>
+            </el-card>
+          </el-form-item>
+        </template>
+      </el-form>
+      
+      <template #footer>
+        <el-button @click="showIndexConfigDialog = false">{{ t('button.cancel') }}</el-button>
+        <el-button type="primary" @click="saveIndexConfig">{{ t('button.confirm') }}</el-button>
+      </template>
+    </el-dialog>
     <el-form-item
       :label="t('form.label.allowAction')"
       v-if="modeSelect[0] !== 'append'"
@@ -822,3 +1166,86 @@ defineExpose({
   />
   <importInfo ref="importInfoRef" />
 </template>
+
+<style scoped>
+.index-fields-container {
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  padding: 10px;
+  background-color: #f5f7fa;
+}
+
+/* 卡片式字段选择 */
+.index-field-cards {
+  margin-bottom: 10px;
+}
+
+.field-cards-wrapper {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.index-field-card {
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.index-field-card:hover {
+  border-color: #409eff;
+}
+
+.index-field-card.selected {
+  border-color: #409eff;
+  background-color: #ecf5ff;
+}
+
+.card-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.field-icon-wrapper {
+  margin-right: 8px;
+}
+
+.field-name {
+  font-weight: 500;
+}
+
+.primary-tag {
+  margin-left: auto;
+}
+
+.card-actions {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #ebeef5;
+}
+
+.config-preview {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #dcdfe6;
+}
+
+.index-config-list {
+  margin-top: 10px;
+}
+
+.index-config-item {
+  background: white;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 8px;
+}
+
+.index-field-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+}
+</style>

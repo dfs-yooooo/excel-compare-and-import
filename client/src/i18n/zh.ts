@@ -12,6 +12,7 @@ export const zh = {
     exportConfig: "导出配置",
     importConfig: "导入配置文件",
     clearAll: "清空全部",
+    addVirtualIndexField: "添加虚拟索引字段",
   },
   guide: "使用指南",
   h: {
@@ -20,6 +21,9 @@ export const zh = {
     chooseOrCreateFormat: "选择或创建输入格式",
     setLink: "关联设置",
     concatSetting: "字段拼接设置",
+    addVirtualIndexField: "添加虚拟索引字段",
+    editVirtualIndexField: "编辑虚拟索引字段",
+    indexFieldConfig: "索引字段配置",
   },
   input: {
     placeholder: {
@@ -57,6 +61,15 @@ export const zh = {
       enableConcat: "启用字段拼接",
       concatSeparator: "拼接分隔符",
       selectConcatFields: "选择要拼接的字段",
+      virtualIndexFields: "虚拟索引字段",
+      virtualFieldName: "虚拟字段名称",
+      selectSourceFields: "选择源字段",
+      selectedSourceFields: "已选择的源字段",
+      indexFieldConfig: "索引字段配置",
+      indexField: "索引字段",
+      useConcatForIndex: "使用拼接作为索引值",
+      configure: "配置",
+      configured: "已配置",
       selectedFields: "已选择的字段（可调整顺序）",
       concatPreview: "拼接预览",
       concatFormula: "拼接公式",
@@ -67,6 +80,9 @@ export const zh = {
     excelField: "Excel 字段",
     fieldName: "字段名",
     operation: "操作",
+    virtualFieldName: "虚拟字段名",
+    sourceFields: "源字段",
+    concatPreview: "拼接预览",
   },
   upload: {
     tip: {
@@ -98,6 +114,10 @@ export const zh = {
     notSupportField: "暂不支持字段，仅可作为索引比较，无法写值",
     concatFields: "多字段拼接",
     concatSeparatorTip: "设置多个字段之间的分隔符，如不需要分隔符请留空",
+    virtualIndexFieldInfo: "虚拟索引字段：不占用多维表格字段，用于拼接多个Excel字段作为索引，可用于记录匹配",
+    virtualField: "虚拟字段",
+    indexFieldConfigInfo: "为索引字段配置多字段拼接，用于记录匹配",
+    primary: "主键",
   },
   message: {
     chooseTableFirst: "请先选择一个表格",
@@ -118,6 +138,10 @@ export const zh = {
       "索引包含自动计算字段 [{fields}]，插件将不会向表中添加新记录",
     configTableError: "配置文件与表格不匹配",
     exportSuccess: "导出成功",
+    virtualFieldNameRequired: "请输入虚拟字段名称",
+    virtualFieldSourceRequired: "请至少选择一个源字段",
+    configSaved: "配置已保存",
+    pleaseSelectIndex: "请至少选择一个索引字段",
     setSelectFieldOptionsFailure: "设置字段 {name}[{field}] 选项失败",
     noLinkedTableReadPermission:
       "没有关联数据表 [{tableId}] 的阅读权限，关联字段 {fieldName}[{fieldId}] 至少需要该数据表的阅读权限。",

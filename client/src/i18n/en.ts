@@ -12,6 +12,7 @@ export const en = {
     exportConfig: "Export Config",
     importConfig: "Import Config File",
     clearAll: "Clear All",
+    addVirtualIndexField: "Add Virtual Index Field",
   },
   guide: "Guide Book",
   h: {
@@ -20,6 +21,8 @@ export const en = {
     chooseOrCreateFormat: "Choose or Create Input Format",
     setLink: "Link Settings",
     concatSetting: "Field Concatenation Settings",
+    addVirtualIndexField: "Add Virtual Index Field",
+    editVirtualIndexField: "Edit Virtual Index Field",
   },
   input: {
     placeholder: {
@@ -57,6 +60,10 @@ export const en = {
       enableConcat: "Enable Field Concatenation",
       concatSeparator: "Concatenation Separator",
       selectConcatFields: "Select Fields to Concatenate",
+      virtualIndexFields: "Virtual Index Fields",
+      virtualFieldName: "Virtual Field Name",
+      selectSourceFields: "Select Source Fields",
+      selectedSourceFields: "Selected Source Fields",
       selectedFields: "Selected Fields (Adjustable Order)",
       concatPreview: "Concatenation Preview",
       concatFormula: "Concatenation Formula",
@@ -67,6 +74,9 @@ export const en = {
     excelField: "Excel Field",
     fieldName: "Field Name",
     operation: "Operation",
+    virtualFieldName: "Virtual Field Name",
+    sourceFields: "Source Fields",
+    concatPreview: "Concat Preview",
   },
   upload: {
     tip: {
@@ -99,6 +109,10 @@ export const en = {
       "Not Support field, only can be used as index, can't write value",
     concatFields: "Concatenate Multiple Fields",
     concatSeparatorTip: "Set the separator between multiple fields. Leave empty if no separator needed.",
+    virtualIndexFieldInfo: "Virtual Index Field: Does not occupy a Bitable field. Used to concatenate multiple Excel fields as an index for record matching.",
+    virtualField: "Virtual Field",
+    indexFieldConfigInfo: "Configure multi-field concatenation for index fields for record matching",
+    primary: "Primary",
   },
   message: {
     chooseTableFirst: "Please choose a table first",
@@ -119,6 +133,10 @@ export const en = {
       "Index contains auto field [{fields}], the plugin will not add new records to the table",
     configTableError: "Config file does not match the table",
     exportSuccess: "Export success",
+    virtualFieldNameRequired: "Please enter a virtual field name",
+    virtualFieldSourceRequired: "Please select at least one source field",
+    configSaved: "Configuration saved",
+    pleaseSelectIndex: "Please select at least one index field",
     noLinkedTableReadPermission:
       "No read permission of linked table [{tableId}]. The link field {fieldName}[{fieldId}] needs the read permission of this table at least.",
   },

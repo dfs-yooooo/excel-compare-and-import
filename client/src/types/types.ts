@@ -53,6 +53,27 @@ export interface ConcatConfig {
   order: number[]
 }
 
+/**
+ * 索引字段配置（用于合并模式）
+ */
+export interface IndexFieldConfig {
+  /** 字段ID */
+  fieldId: string
+  /** 字段名称 */
+  fieldName: string
+  /** 是否启用拼接 */
+  useConcat: boolean
+  /** 拼接配置 */
+  concatConfig: {
+    /** 源Excel字段列表 */
+    sourceFields: string[]
+    /** 分隔符 */
+    separator: string
+    /** 顺序 */
+    order: number[]
+  }
+}
+
 export interface fieldMap {
   /**
    * Key for tree node
@@ -160,4 +181,21 @@ export interface ImportOptions {
   updateOption?: {
     mode: UpdateMode[]
   }
+}
+
+/**
+ * 虚拟索引字段
+ * 不对应多维表格的真实字段，用于拼接多个Excel字段作为索引
+ */
+export interface VirtualIndexField {
+  /** 唯一标识 */
+  id: string
+  /** 字段名称（用户自定义） */
+  name: string
+  /** 要拼接的Excel字段列表 */
+  sourceFields: string[]
+  /** 拼接分隔符 */
+  separator: string
+  /** 字段顺序 */
+  order: number[]
 }

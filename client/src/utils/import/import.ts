@@ -16,6 +16,8 @@ import type {
   LinkField,
   Task,
   ImportOptions,
+  VirtualIndexField,
+  IndexFieldConfig,
 } from "@/types/types"
 import { importModes, TaskStatus, UpdateMode } from "@/types/types"
 import { TaskAction } from "@/utils/import/tasks"
@@ -1005,6 +1007,50 @@ async function setOptions(
 }
 
 /**
+ * 计算虚拟索引字段的值
+ */
+function computeVirtualIndexValue(
+  record: Record<string, string | null>,
+  virtualField: VirtualIndexField,
+): string {
+  const values = virtualField.sourceFields
+    .map((fieldName, index) => {
+      const orderIndex = virtualField.order[index] ?? index
+      return { value: record[fieldName] ?? "", order: orderIndex }
+    })
+    .sort((a, b) => a.order - b.order)
+    .map((item) => item.value)
+    .filter((v) => v !== null && v !== "")
+  
+  return values.join(virtualField.separator)
+}
+
+/**
+ * 计算索引字段值（支持拼接配置）
+ */
+function computeIndexValue(
+  record: Record<string, string | null>,
+  indexConfig: IndexFieldConfig,
+): string {
+  if (!indexConfig.useConcat || indexConfig.concatConfig.sourceFields.length === 0) {
+    // 不使用拼接，直接返回对应字段值
+    return record[indexConfig.fieldName] ?? ""
+  }
+  
+  // 使用拼接
+  const values = indexConfig.concatConfig.sourceFields
+    .map((fieldName, index) => ({
+      value: record[fieldName] ?? "",
+      order: indexConfig.concatConfig.order[index] ?? index
+    }))
+    .sort((a, b) => a.order - b.order)
+    .map((item) => item.value)
+    .filter((v) => v !== "")
+  
+  return values.join(indexConfig.concatConfig.separator)
+}
+
+/**
  * Import excel
  *
  * @param fieldsMaps
@@ -1013,6 +1059,8 @@ async function setOptions(
  * @param index
  * @param mode
  * @param options
+ * @param virtualIndexFields 虚拟索引字段列表
+ * @param indexFieldConfigs 索引字段配置（Record格式）
  * @param lifeCircleHook
  */
 export async function importExcel(
@@ -1022,6 +1070,8 @@ export async function importExcel(
   index: string[] | null = null,
   mode: importModes = importModes.append,
   options: ImportOptions = {},
+  virtualIndexFields: VirtualIndexField[] = [],
+  indexFieldConfigs: Record<string, IndexFieldConfig> = {},
   lifeCircleHook: (
     stage: importLifeCircles,
     params: lifeCircleEventParams,
@@ -1218,16 +1268,47 @@ export async function importExcel(
     )
     tasks.push(...t)
   } else {
-    const excelIndexField = index.map((i) => {
-      const fieldMap = fieldsMaps.find((j) => j.field.id === i)
-      if (!fieldMap) {
-        return null
+    // 准备索引字段配置
+    const indexConfigs: IndexFieldConfig[] = []
+    
+    index.forEach((id) => {
+      const config = indexFieldConfigs[id]
+      if (config) {
+        // 使用配置的索引字段
+        indexConfigs.push(config)
+      } else {
+        // 使用默认配置（不拼接）
+        const field = fieldsMaps.find((f) => f.field.id === id)
+        if (field) {
+          indexConfigs.push({
+            fieldId: id,
+            fieldName: field.field.name,
+            useConcat: false,
+            concatConfig: {
+              sourceFields: [],
+              separator: "",
+              order: [],
+            },
+          })
+        }
       }
-      return fieldMap
     })
+    
+    // 分离使用拼接和不使用拼接的索引
+    const concatIndexConfigs = indexConfigs.filter((c) => c.useConcat)
+    const normalIndexConfigs = indexConfigs.filter((c) => !c.useConcat)
+    
+    const excelIndexField = normalIndexConfigs.map((config) => {
+      return fieldsMaps.find((f) => f.field.id === config.fieldId)
+    }).filter((f): f is fieldMap => f !== undefined)
+    
     Info({
       title: "excelIndexField",
-      message: JSON.stringify(excelIndexField, null, 2),
+      message: JSON.stringify(excelIndexField.map((f) => f.field.name), null, 2),
+    })
+    Info({
+      title: "concatIndexConfigs",
+      message: JSON.stringify(concatIndexConfigs, null, 2),
     })
     lifeCircleHook(importLifeCircles.onAnalyzeRecords, {
       stage: "analyzeRecords",
@@ -1246,15 +1327,26 @@ export async function importExcel(
       excelRecords,
       async (record) => {
         const t: Task[] = []
-        const excelIndexValue = await Promise.all(
+        
+        // 计算普通索引字段值（不使用拼接）
+        const normalIndexValues = await Promise.all(
           excelIndexField.map(
             async (i) =>
               await cellTranslator.normalization(
-                record[i!.excel_field!] ?? "",
-                i!,
+                record[i.excel_field!] ?? "",
+                i,
               ),
           ),
         )
+        
+        // 计算使用拼接的索引字段值
+        const concatIndexValues = concatIndexConfigs.map((config) =>
+          computeIndexValue(record, config)
+        )
+        
+        // 合并所有索引值
+        const excelIndexValue = [...normalIndexValues, ...concatIndexValues]
+        
         const sameRecords = rootIndex.filter((i) => {
           return isArrayStrictEqual(i.indexValue, excelIndexValue)
         })
