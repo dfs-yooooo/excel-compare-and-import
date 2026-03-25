@@ -29,7 +29,6 @@ import defaultOptions from "~/plugin.config.json"
 import { validateIndex, validateIndexAuto } from "./utils"
 import ExportIcon from "@/components/icons/export-icon.vue"
 import ImportIcon from "@/components/icons/import-icon.vue"
-import { Tools } from "@element-plus/icons-vue"
 import type { ConcatConfig } from "@/types/types"
 import virtualIndexSetting from "@/components/virtual-index-setting/index.vue"
 
@@ -227,6 +226,45 @@ watch(
   (newVal) => {
     mode.value = newVal[newVal.length - 1] as importModes
   },
+)
+
+// 监听当前索引配置的变化，同步更新 order 数组
+watch(
+  () => currentIndexConfig.value?.concatConfig.sourceFields,
+  (newFields, oldFields) => {
+    if (!currentIndexConfig.value) return
+    
+    const config = currentIndexConfig.value.concatConfig
+    
+    // 如果字段被添加
+    if (newFields && oldFields && newFields.length > oldFields.length) {
+      // 找出新增的字段
+      const newField = newFields.find(f => !oldFields.includes(f))
+      if (newField) {
+        // 添加到 order 数组末尾
+        config.order.push(config.order.length)
+      }
+    }
+    
+    // 如果字段被删除
+    if (newFields && oldFields && newFields.length < oldFields.length) {
+      // 找出被删除的字段在旧数组中的索引
+      const removedIndex = oldFields.findIndex(f => !newFields.includes(f))
+      if (removedIndex !== -1) {
+        const removedOrder = config.order[removedIndex]
+        // 删除对应的 order
+        config.order.splice(removedIndex, 1)
+        // 重新调整大于 removedOrder 的 order 值
+        config.order = config.order.map(o => o > removedOrder ? o - 1 : o)
+      }
+    }
+    
+    // 初始化：如果 order 为空但 sourceFields 不为空
+    if (newFields && config.order.length === 0 && newFields.length > 0) {
+      config.order = newFields.map((_, index) => index)
+    }
+  },
+  { deep: true }
 )
 
 const filters = computed(() => {
@@ -532,31 +570,12 @@ function getOrderedSourceFields() {
     .map((item) => item.name)
 }
 
-// 添加源字段到索引
-function addSourceFieldToIndex(fieldName: string) {
-  if (!currentIndexConfig.value) return
-  
-  if (!currentIndexConfig.value.concatConfig.sourceFields.includes(fieldName)) {
-    currentIndexConfig.value.concatConfig.sourceFields.push(fieldName)
-    currentIndexConfig.value.concatConfig.order.push(
-      currentIndexConfig.value.concatConfig.order.length
-    )
-  }
-}
-
 // 移除源字段
 function removeSourceField(index: number) {
   if (!currentIndexConfig.value) return
   
-  const removedOrder = currentIndexConfig.value.concatConfig.order[index]
+  // 只删除 sourceFields 中的元素，watch 会自动同步 order 数组
   currentIndexConfig.value.concatConfig.sourceFields.splice(index, 1)
-  currentIndexConfig.value.concatConfig.order.splice(index, 1)
-  
-  // 重新调整顺序
-  currentIndexConfig.value.concatConfig.order = 
-    currentIndexConfig.value.concatConfig.order.map((o) => 
-      o > removedOrder ? o - 1 : o
-    )
 }
 
 // 移动源字段顺序
@@ -888,15 +907,6 @@ defineExpose({
                 @click="settingField(row)"
               ></el-button>
             </el-tooltip>
-            <!-- 字段拼接按钮 -->
-            <el-tooltip :content="t('toolTip.concatFields')">
-              <el-button
-                :disabled="!(excelFields.length > 0)"
-                :icon="Tools"
-                :type="row.config?.concatConfig?.enabled ? 'success' : 'default'"
-                @click="settingConcat(row)"
-              ></el-button>
-            </el-tooltip>
           </template>
         </el-table-column>
       </el-table>
@@ -1006,14 +1016,20 @@ defineExpose({
           </el-form-item>
           
           <el-form-item :label="t('form.label.selectSourceFields')" required>
-            <el-select-v2
-              :options="excelFields.map((f) => ({ label: f.name, value: f.name }))"
-              :placeholder="t('input.placeholder.selectSourceFields')"
+            <el-select
+              v-model="currentIndexConfig.concatConfig.sourceFields"
+              multiple
               filterable
-              clearable
-              @change="(val) => val && addSourceFieldToIndex(val as string)"
+              :placeholder="t('input.placeholder.selectSourceFields')"
               style="width: 100%; margin-bottom: 10px"
-            />
+            >
+              <el-option
+                v-for="field in excelFields"
+                :key="field.name"
+                :label="field.name"
+                :value="field.name"
+              />
+            </el-select>
           </el-form-item>
           
           <el-form-item
