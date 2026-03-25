@@ -16,6 +16,7 @@ import {
 import { indexFieldType, Log, Error, Warn, downLoadFileFromA } from "@/utils"
 import fieldSetting from "@/components/field-setting/index.vue"
 import linkSetting from "@/components/link-setting/index.vue"
+import concatSetting from "@/components/concat-setting/index.vue"
 import { useI18n } from "vue-i18n"
 import fieldIcon from "@/components/field-icon/index.vue"
 import importInfo from "@/components/import-info/index.vue"
@@ -27,6 +28,8 @@ import defaultOptions from "~/plugin.config.json"
 import { validateIndex, validateIndexAuto } from "./utils"
 import ExportIcon from "@/components/icons/export-icon.vue"
 import ImportIcon from "@/components/icons/import-icon.vue"
+import { Tools } from "@element-plus/icons-vue"
+import type { ConcatConfig } from "@/types/types"
 
 const { t } = useI18n()
 const props = defineProps({
@@ -45,6 +48,8 @@ const chooseRef = ref()
 const settingRef = ref()
 const importInfoRef = ref()
 const linkRef = ref()
+const concatRef = ref()
+const currentConcatField = ref<fieldMap>()
 const tableList = ref<ITableMeta[]>([])
 const targetTableId = ref<string>("")
 const allowAdd = ref(true)
@@ -324,6 +329,21 @@ function getFormat(value: fieldMap["config"]) {
   }
 }
 
+function settingConcat(row: fieldMap) {
+  currentConcatField.value = row
+  concatRef.value.toggleVisible()
+}
+
+function setConcatConfig(config: ConcatConfig) {
+  if (currentConcatField.value) {
+    currentConcatField.value.config.concatConfig = config
+    // 如果启用了拼接，清空单个字段映射，避免冲突
+    if (config.enabled && config.fields.length > 0) {
+      currentConcatField.value.excel_field = undefined
+    }
+  }
+}
+
 function setLinkField(
   linkConfig: fieldMap["linkConfig"],
   config: fieldMap["config"],
@@ -393,6 +413,8 @@ const exportConfig = () => {
         acc[cur.field.id] = {
           excel_field: cur.excel_field,
           config: cur.config,
+          // 包含拼接配置
+          concatConfig: cur.config?.concatConfig,
         }
         return acc
       },
@@ -659,6 +681,15 @@ defineExpose({
                 @click="settingField(row)"
               ></el-button>
             </el-tooltip>
+            <!-- 字段拼接按钮 -->
+            <el-tooltip :content="t('toolTip.concatFields')">
+              <el-button
+                :disabled="!(excelFields.length > 0)"
+                :icon="Tools"
+                :type="row.config?.concatConfig?.enabled ? 'success' : 'default'"
+                @click="settingConcat(row)"
+              ></el-button>
+            </el-tooltip>
           </template>
         </el-table-column>
       </el-table>
@@ -782,6 +813,12 @@ defineExpose({
     ref="linkRef"
     @confirmSetting="setLinkField"
     :field="currentSetting"
+  />
+  <concatSetting
+    ref="concatRef"
+    @confirmConcat="setConcatConfig"
+    :field="currentConcatField"
+    :excelFields="excelFields"
   />
   <importInfo ref="importInfoRef" />
 </template>

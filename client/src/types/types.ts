@@ -39,6 +39,20 @@ export type LinkField = ISingleLinkFieldMeta | IDuplexLinkFieldMeta
 
 export type requestMethod = "GET" | "POST"
 
+/**
+ * 字段拼接配置
+ */
+export interface ConcatConfig {
+  /** 是否启用拼接 */
+  enabled: boolean
+  /** 要拼接的Excel字段列表 */
+  fields: string[]
+  /** 拼接分隔符 */
+  separator: string
+  /** 拼接顺序 */
+  order: number[]
+}
+
 export interface fieldMap {
   /**
    * Key for tree node
@@ -64,6 +78,10 @@ export interface fieldMap {
       headers: Array<[string, string]>
       body: string
     }
+    /**
+     * 字段拼接配置
+     */
+    concatConfig?: ConcatConfig
   }
   linkConfig?: {
     allowAdd?: boolean

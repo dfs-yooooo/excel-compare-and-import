@@ -65,15 +65,21 @@ async function loadFieldMaps(
         }
       }
       const defaultMap = defaults?.find((i) => i.field.id === v.id) ?? undefined
+      const defaultConfig = defaultMap && defaultMap.field.type === v.type
+        ? defaultMap.config
+        : configField(v.type)
+      
+      // 恢复拼接配置
+      if (defaultMap?.config?.concatConfig) {
+        defaultConfig.concatConfig = defaultMap.config.concatConfig
+      }
+      
       return {
         key: v.id,
         field: v,
         table: tableId ?? "",
         excel_field: defaultMap ? defaultMap.excel_field : undefined,
-        config:
-          defaultMap && defaultMap.field.type === v.type
-            ? defaultMap.config
-            : configField(v.type),
+        config: defaultConfig,
         root: true,
         hasChildren,
         children,

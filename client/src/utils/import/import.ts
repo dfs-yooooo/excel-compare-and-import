@@ -517,6 +517,36 @@ async function linkStrategy(
   // }
 }
 
+/**
+ * 处理字段拼接
+ * @param record Excel记录
+ * @param concatConfig 拼接配置
+ * @returns 拼接后的值
+ */
+function concatFieldValues(
+  record: Record<string, string | null>,
+  concatConfig: NonNullable<fieldMap["config"]["concatConfig"]>,
+): string | null {
+  if (!concatConfig.enabled || concatConfig.fields.length === 0) {
+    return null
+  }
+  
+  // 按顺序获取字段值
+  const values = concatConfig.fields
+    .map((fieldName, index) => {
+      const orderIndex = concatConfig.order[index] ?? index
+      return { value: record[fieldName] ?? "", order: orderIndex }
+    })
+    .sort((a, b) => a.order - b.order)
+    .map((item) => item.value)
+    .filter((v) => v !== null && v !== "")
+  
+  if (values.length === 0) return null
+  
+  // 使用分隔符拼接
+  return values.join(concatConfig.separator)
+}
+
 async function addStrategy(
   record: Record<string, string | null>,
   fieldMap: fieldMap,
@@ -536,9 +566,19 @@ async function addStrategy(
   ) => void,
   linkTarget?: Task,
 ): Promise<ICell | null> {
-  if (!fieldMap.excel_field || !fieldMap.writable) return null
-  const value = record[fieldMap.excel_field] ?? null
+  if (!fieldMap.writable) return null
+  
+  let value: string | null = null
+  
+  // 优先处理字段拼接
+  if (fieldMap.config?.concatConfig?.enabled) {
+    value = concatFieldValues(record, fieldMap.config.concatConfig)
+  } else if (fieldMap.excel_field) {
+    value = record[fieldMap.excel_field] ?? null
+  }
+  
   if (!value) return null
+  
   const field = tables[fieldMap.table].fields[fieldMap.field.id]
   const needLink = linkFieldType.includes(fieldMap.field.type)
   const { linkConfig } = fieldMap
@@ -1375,8 +1415,18 @@ export async function importExcel(
         }
         const cells: Array<ICell | null> = []
         for (const fieldMap of fieldsMaps) {
-          if (!fieldMap.excel_field || !fieldMap.writable) continue
-          const excelValue = record[fieldMap.excel_field] ?? ""
+          if (!fieldMap.writable) continue
+          
+          // 处理字段拼接或单个字段
+          let excelValue: string | null = null
+          if (fieldMap.config?.concatConfig?.enabled) {
+            excelValue = concatFieldValues(record, fieldMap.config.concatConfig)
+          } else if (fieldMap.excel_field) {
+            excelValue = record[fieldMap.excel_field] ?? null
+          }
+          
+          if (!excelValue) continue
+          
           const field = tables[fieldMap.table].fields[fieldMap.field.id]
           lifeCircleHook(importLifeCircles.onAnalyzeRecords, {
             stage: "analyzeRecords",

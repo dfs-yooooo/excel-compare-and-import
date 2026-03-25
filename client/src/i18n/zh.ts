@@ -11,6 +11,7 @@ export const zh = {
     clear: "清空",
     exportConfig: "导出配置",
     importConfig: "导入配置文件",
+    clearAll: "清空全部",
   },
   guide: "使用指南",
   h: {
@@ -18,6 +19,7 @@ export const zh = {
     settings: "设置",
     chooseOrCreateFormat: "选择或创建输入格式",
     setLink: "关联设置",
+    concatSetting: "字段拼接设置",
   },
   input: {
     placeholder: {
@@ -26,6 +28,8 @@ export const zh = {
       chooseSheet: "选择工作表",
       chooseTable: "选择表格",
       chooseOrCreateFormat: "选择或创建输入格式",
+      selectFieldsToConcat: "选择要拼接的字段",
+      concatSeparator: "例如：-、/、空格，或不填",
     },
     chooseAsPrimaryKey: "选择作为主键",
   },
@@ -50,11 +54,19 @@ export const zh = {
       requestConfig: "请求配置",
       requestMethod: "请求方法",
       requestHeaders: "请求头",
+      enableConcat: "启用字段拼接",
+      concatSeparator: "拼接分隔符",
+      selectConcatFields: "选择要拼接的字段",
+      selectedFields: "已选择的字段（可调整顺序）",
+      concatPreview: "拼接预览",
+      concatFormula: "拼接公式",
     },
   },
   table: {
     baseField: "多维表格字段",
     excelField: "Excel 字段",
+    fieldName: "字段名",
+    operation: "操作",
   },
   upload: {
     tip: {
@@ -84,6 +96,8 @@ export const zh = {
     questions: "常见问题",
     autoField: "自动计算字段",
     notSupportField: "暂不支持字段，仅可作为索引比较，无法写值",
+    concatFields: "多字段拼接",
+    concatSeparatorTip: "设置多个字段之间的分隔符，如不需要分隔符请留空",
   },
   message: {
     chooseTableFirst: "请先选择一个表格",

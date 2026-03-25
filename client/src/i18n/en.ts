@@ -11,6 +11,7 @@ export const en = {
     clear: "Clear",
     exportConfig: "Export Config",
     importConfig: "Import Config File",
+    clearAll: "Clear All",
   },
   guide: "Guide Book",
   h: {
@@ -18,6 +19,7 @@ export const en = {
     settings: "Settings",
     chooseOrCreateFormat: "Choose or Create Input Format",
     setLink: "Link Settings",
+    concatSetting: "Field Concatenation Settings",
   },
   input: {
     placeholder: {
@@ -26,6 +28,8 @@ export const en = {
       chooseSheet: "Choose Sheet",
       chooseTable: "Choose Table",
       chooseOrCreateFormat: "Choose or Create Input Format",
+      selectFieldsToConcat: "Select fields to concatenate",
+      concatSeparator: "e.g., -, /, space, or leave empty",
     },
     chooseAsPrimaryKey: "Choose as Primary Key",
   },
@@ -50,11 +54,19 @@ export const en = {
       requestConfig: "Request Config",
       requestMethod: "Method",
       requestHeaders: "Headers",
+      enableConcat: "Enable Field Concatenation",
+      concatSeparator: "Concatenation Separator",
+      selectConcatFields: "Select Fields to Concatenate",
+      selectedFields: "Selected Fields (Adjustable Order)",
+      concatPreview: "Concatenation Preview",
+      concatFormula: "Concatenation Formula",
     },
   },
   table: {
     baseField: "Base Field",
     excelField: "Excel Field",
+    fieldName: "Field Name",
+    operation: "Operation",
   },
   upload: {
     tip: {
@@ -85,6 +97,8 @@ export const en = {
     autoField: "Auto Field",
     notSupportField:
       "Not Support field, only can be used as index, can't write value",
+    concatFields: "Concatenate Multiple Fields",
+    concatSeparatorTip: "Set the separator between multiple fields. Leave empty if no separator needed.",
   },
   message: {
     chooseTableFirst: "Please choose a table first",
