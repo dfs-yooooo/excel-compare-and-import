@@ -1249,6 +1249,25 @@ export async function importExcel(
           )
           if (cell) cells.push(cell)
         }
+        
+        // 处理索引字段的值写入（包括拼接索引）
+        if (index) {
+          for (const indexId of index) {
+            const indexConfig = indexFieldConfigs[indexId]
+            const indexFieldMap = fieldsMaps.find(f => f.field.id === indexId)
+            
+            if (indexFieldMap && indexConfig?.useConcat && indexConfig.concatConfig) {
+              // 计算拼接索引值
+              const indexValue = computeIndexValue(record, indexConfig)
+              if (indexValue) {
+                const field = tables[indexFieldMap.table].fields[indexFieldMap.field.id]
+                const cell = await cellTranslator.getCell(field, indexFieldMap, indexValue)
+                if (cell) cells.push(cell)
+              }
+            }
+          }
+        }
+        
         lifeCircleHook(importLifeCircles.onAnalyzeRecords, {
           stage: "analyzeRecords",
           data: {
@@ -1593,6 +1612,40 @@ export async function importExcel(
             if (cell) cells.push(cell)
           }
         }
+        
+        // 处理索引字段的值写入（包括拼接索引）
+        if (index) {
+          for (const indexId of index) {
+            const indexConfig = indexFieldConfigs[indexId]
+            const indexFieldMap = fieldsMaps.find(f => f.field.id === indexId)
+            
+            if (indexFieldMap && indexConfig?.useConcat && indexConfig.concatConfig) {
+              // 计算拼接索引值
+              const indexValue = computeIndexValue(record, indexConfig)
+              if (indexValue) {
+                const field = tables[indexFieldMap.table].fields[indexFieldMap.field.id]
+                const tableValue = updateRecord?.tableValues?.[indexFieldMap.field.id] ?? null
+                
+                if (allowAction.add && !sameRecords.length) {
+                  // 新增记录，直接写入索引值
+                  const cell = await cellTranslator.getCell(field, indexFieldMap, indexValue)
+                  if (cell) cells.push(cell)
+                } else if (allowAction.update && updateRecord) {
+                  // 更新记录，比较后写入
+                  const cell = await compareCellValue(
+                    indexValue,
+                    tableValue,
+                    mode,
+                    field,
+                    indexFieldMap,
+                  )
+                  if (cell) cells.push(cell)
+                }
+              }
+            }
+          }
+        }
+        
         lifeCircleHook(importLifeCircles.onAnalyzeRecords, {
           stage: "analyzeRecords",
           data: {

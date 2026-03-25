@@ -29,6 +29,7 @@ export const zh = {
     placeholder: {
       chooseField: "查找并选择字段",
       chooseIndex: "查找并选择索引",
+      chooseIndexField: "请选择索引字段",
       chooseSheet: "选择工作表",
       chooseTable: "选择表格",
       chooseOrCreateFormat: "选择或创建输入格式",
@@ -116,6 +117,7 @@ export const zh = {
     concatSeparatorTip: "设置多个字段之间的分隔符，如不需要分隔符请留空",
     virtualIndexFieldInfo: "虚拟索引字段：不占用多维表格字段，用于拼接多个Excel字段作为索引，可用于记录匹配",
     virtualField: "虚拟字段",
+    indexFieldConfig: "配置索引字段",
     indexFieldConfigInfo: "为索引字段配置多字段拼接，用于记录匹配",
     primary: "主键",
   },

@@ -28,6 +28,7 @@ export const en = {
     placeholder: {
       chooseField: "Search and Select Field",
       chooseIndex: "Search and Select Index",
+      chooseIndexField: "Please select index field",
       chooseSheet: "Choose Sheet",
       chooseTable: "Choose Table",
       chooseOrCreateFormat: "Choose or Create Input Format",
@@ -111,6 +112,7 @@ export const en = {
     concatSeparatorTip: "Set the separator between multiple fields. Leave empty if no separator needed.",
     virtualIndexFieldInfo: "Virtual Index Field: Does not occupy a Bitable field. Used to concatenate multiple Excel fields as an index for record matching.",
     virtualField: "Virtual Field",
+    indexFieldConfig: "Configure Index Field",
     indexFieldConfigInfo: "Configure multi-field concatenation for index fields for record matching",
     primary: "Primary",
   },

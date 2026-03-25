@@ -99,7 +99,7 @@ export function useSetting(
   const settingColumns = ref<fieldMap[]>([])
   const sheetIndex = ref<number>(0)
   const excelFields = ref<SheetInfo["tableData"]["fields"]>([])
-  const Index = ref<string[]>([])
+  const Index = ref<string>("")
   const pending = ref(false)
   function reset() {
     settingColumns.value = settingColumns.value.map((v) => {

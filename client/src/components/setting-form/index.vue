@@ -248,9 +248,19 @@ function filterHandler(
 }
 
 const validate = () => {
-  const indexes = Index.value.map(
-    (i) => settingColumns.value.find((j) => j.field.id === i) as fieldMap,
-  )
+  if (!Index.value) {
+    Warn({
+      title: "noIndex",
+      message: "noIndex",
+      notice: true,
+      noticeParams: {
+        text: "message.noIndex",
+      },
+    })
+    return false
+  }
+  const indexFieldMap = settingColumns.value.find((j) => j.field.id === Index.value) as fieldMap
+  const indexes = indexFieldMap ? [indexFieldMap] : []
   const hasAuto = validateIndexAuto(indexes)
   const noEmpty = validateIndex(indexes, indexFieldConfigs.value)
   if (hasAuto) {
@@ -288,7 +298,7 @@ async function importAction() {
   }
   if (mode.value !== importModes.append && !validate()) return
   const sheet_index = sheetIndex.value
-  const index = Index.value
+  const index = Index.value ? [Index.value] : null
   importLoading.value = true
   importInfoRef.value.toggleVisible()
   const { importExcel } = await import("@/utils/import/import.ts")
@@ -424,43 +434,29 @@ onMounted(() => {
 })
 
 // 索引字段变化时初始化配置
-function onIndexChange(selectedIds: string[]) {
+function onIndexChange(selectedId: string) {
   validate()
-  // 为新增的索引字段初始化配置
-  selectedIds.forEach((id) => {
-    if (!indexFieldConfigs.value.has(id)) {
-      const field = indexFields.value.find((f) => f.id === id)
-      if (field) {
-        indexFieldConfigs.value.set(id, {
-          fieldId: id,
-          fieldName: field.name,
-          useConcat: false,
-          concatConfig: {
-            sourceFields: [],
-            separator: "",
-            order: [],
-          },
-        })
-      }
+  // 清理旧的配置
+  indexFieldConfigs.value.clear()
+  
+  // 为选中的索引字段初始化配置
+  if (selectedId) {
+    const field = indexFields.value.find((f) => f.id === selectedId)
+    if (field) {
+      indexFieldConfigs.value.set(selectedId, {
+        fieldId: selectedId,
+        fieldName: field.name,
+        useConcat: false,
+        concatConfig: {
+          sourceFields: [],
+          separator: "",
+          order: [],
+        },
+      })
+      // 自动打开配置对话框
+      openIndexConfig(selectedId)
     }
-  })
-  // 清理未选中的配置
-  indexFieldConfigs.value.forEach((_, id) => {
-    if (!selectedIds.includes(id)) {
-      indexFieldConfigs.value.delete(id)
-    }
-  })
-}
-
-// 切换索引字段选中状态
-function toggleIndexField(fieldId: string) {
-  const index = Index.value.indexOf(fieldId)
-  if (index > -1) {
-    Index.value.splice(index, 1)
-  } else {
-    Index.value.push(fieldId)
   }
-  onIndexChange(Index.value)
 }
 
 // 获取字段类型
@@ -687,9 +683,14 @@ const readConfig = async (file: UploadFile) => {
       }
     })
   }
-  if (index) {
+  if (index && index.length > 0) {
     const tableFields = settingColumns.value.map((i) => i.field.id)
-    Index.value = index.filter((i: string) => tableFields.includes(i))
+    const validIndex = index.find((i: string) => tableFields.includes(i))
+    if (validIndex) {
+      Index.value = validIndex
+      // 恢复索引配置
+      onIndexChange(validIndex)
+    }
   }
   ElMessage.success(t("message.importSuccess"))
   configImporting.value = false
@@ -927,60 +928,56 @@ defineExpose({
         </el-tooltip>
       </template>
       
-      <!-- 索引字段选择 - 卡片式展示 -->
-      <div class="index-fields-container">
-        <div class="index-field-cards">
-          <el-checkbox-group v-model="Index" @change="onIndexChange">
-            <div class="field-cards-wrapper">
-              <el-card
-                v-for="item of indexFields"
-                :key="item.id"
-                class="index-field-card"
-                :class="{ selected: Index.includes(item.id) }"
-                shadow="hover"
-                @click="toggleIndexField(item.id)"
-              >
-                <div class="card-content">
-                  <el-checkbox :label="item.id" @click.stop>
-                    <span class="field-icon-wrapper">
-                      <field-icon :type="item.type" />
-                    </span>
-                    <span class="field-name">{{ item.name }}</span>
-                  </el-checkbox>
-                  <el-tag v-if="item.isPrimary" size="small" type="success" class="primary-tag">
-                    {{ t('label.primary') }}
-                  </el-tag>
-                </div>
-                
-                <!-- 配置按钮（仅在选中时显示） -->
-                <div v-if="Index.includes(item.id)" class="card-actions" @click.stop>
-                  <el-button
-                    link
-                    type="primary"
-                    size="small"
-                    @click="openIndexConfig(item.id)"
-                  >
-                    <el-icon><Setting /></el-icon>
-                    {{ getIndexConfigButtonText(item.id) }}
-                  </el-button>
-                </div>
-                
-                <!-- 配置预览 -->
-                <div v-if="Index.includes(item.id) && indexFieldConfigs.get(item.id)?.useConcat" class="config-preview">
-                  <el-text type="info" size="small">
-                    <el-icon><Link /></el-icon>
-                    {{ getConcatSourceFields(item.id).join(indexFieldConfigs.get(item.id)?.concatConfig?.separator || '') }}
-                  </el-text>
-                </div>
-              </el-card>
+      <!-- 索引字段选择 - 下拉框式展示 -->
+      <div class="index-field-selector">
+        <el-select-v2
+          v-model="Index"
+          :options="indexFields.map(item => ({ 
+            label: item.name, 
+            value: item.id,
+            type: item.type,
+            isPrimary: item.isPrimary
+          }))"
+          :placeholder="t('input.placeholder.chooseIndexField')"
+          @change="onIndexChange"
+          filterable
+          clearable
+          style="width: 300px"
+        >
+          <template #default="{ item }">
+            <div style="display: flex; align-items: center; gap: 8px">
+              <field-icon :type="item.type" />
+              <span>{{ item.label }}</span>
+              <el-tag v-if="item.isPrimary" size="small" type="success">
+                {{ t('label.primary') }}
+              </el-tag>
             </div>
-          </el-checkbox-group>
+          </template>
+        </el-select-v2>
+        
+        <!-- 配置按钮（仅在选中时显示） -->
+        <el-tooltip v-if="Index" :content="t('toolTip.indexFieldConfig')">
+          <el-button
+            type="primary"
+            :icon="Setting"
+            @click="openIndexConfig(Index)"
+            style="margin-left: 8px"
+          >
+            {{ getIndexConfigButtonText(Index) }}
+          </el-button>
+        </el-tooltip>
+        
+        <!-- 配置预览 -->
+        <div v-if="Index && indexFieldConfigs.get(Index)?.useConcat" class="config-preview" style="margin-top: 8px">
+          <el-text type="info" size="small">
+            <el-icon><Link /></el-icon>
+            {{ getConcatSourceFields(Index).join(indexFieldConfigs.get(Index)?.concatConfig?.separator || '') }}
+          </el-text>
         </div>
         
-        <el-text v-if="Index.length === 0" type="warning" size="small">
+        <el-text v-if="!Index" type="warning" size="small" style="display: block; margin-top: 8px">
           {{ t('message.pleaseSelectIndex') }}
         </el-text>
-        
       </div>
     </el-form-item>
 
